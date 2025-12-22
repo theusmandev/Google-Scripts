@@ -1,7 +1,7 @@
 function createBloggerPosts() {
   // --- Settings ---
-  var blogId = '5348751722251664152'; // Your Blogger blog ID
-  var spreadsheetId = '1A6lyyiZLMkGDEEWB3d96FAE34V7Q0uyOEZQ_ifz6p8I'; // Your Google Sheet ID
+  var blogId = 'Your Blogger blog ID'; // Your Blogger blog ID
+  var spreadsheetId = 'Your Google Sheet ID'; // Your Google Sheet ID
   var postLimit = 1; // Number of posts per run
   // ----------------
 
