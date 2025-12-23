@@ -1,0 +1,106 @@
+function saveFullPostsData() {
+  // ------------------------------------------
+  // 1️⃣ ترتیبات (Settings)
+  // ------------------------------------------
+  var BLOG_URL = "https://www.urdunovelbanks.com/";
+  var RSS_URL = BLOG_URL + "feeds/posts/default?alt=rss";
+  
+  // اپنی گوگل ڈرائیو فولڈر ID یہاں لکھیں
+  var FOLDER_ID = ""; 
+
+  // ------------------------------------------
+  // 2️⃣ تاریخ اور فیڈ لوڈنگ
+  // ------------------------------------------
+  var now = new Date();
+  var currentMonth = now.getMonth(); // 0 = Jan, 11 = Dec
+  var currentYear = now.getFullYear();
+  
+  Logger.log("Fetching RSS Feed...");
+  
+  try {
+    var response = UrlFetchApp.fetch(RSS_URL);
+    var xml = response.getContentText();
+    var document = XmlService.parse(xml);
+    var root = document.getRootElement();
+    var channel = root.getChild('channel');
+    var items = channel.getChildren('item');
+  } catch (e) {
+    Logger.log("Error fetching RSS: " + e.toString());
+    return;
+  }
+
+  // CSV ہیڈر (Header)
+  var csvContent = "Date,Title,Labels,Post URL,Full HTML Content\n";
+  var postsFound = 0;
+
+  // ------------------------------------------
+  // 3️⃣ ڈیٹا نکالنا (Data Extraction)
+  // ------------------------------------------
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    
+    // تاریخ چیک کریں
+    var pubDateStr = item.getChildText('pubDate');
+    var pubDate = new Date(pubDateStr);
+    
+    // صرف موجودہ مہینے کی پوسٹس
+    if (pubDate.getFullYear() === currentYear && pubDate.getMonth() === currentMonth) {
+      
+      var title = item.getChildText('title');
+      var link = item.getChildText('link');
+      
+      // Blogger RSS میں description ہی اصل میں پورا HTML ہوتا ہے
+      var fullHtml = item.getChildText('description'); 
+
+      // لیبلز (Labels/Categories) نکالنا
+      var categories = item.getChildren('category');
+      var labelList = [];
+      for (var k = 0; k < categories.length; k++) {
+        labelList.push(categories[k].getText());
+      }
+      var labels = labelList.join(", "); // کوما کے ساتھ جوڑ دیں
+
+      // ------------------------------------------
+      // 4️⃣ CSV صفائی (Sanitization)
+      // ------------------------------------------
+      // ڈیٹا کو CSV فارمیٹ میں محفوظ بنانے کے لیے فنکشن استعمال کریں
+      var row = [
+        pubDate.toISOString().split('T')[0], // Date
+        escapeCsv(title),                    // Title
+        escapeCsv(labels),                   // Labels
+        link,                                // URL (Link usually safe)
+        escapeCsv(fullHtml)                  // Full HTML (Description)
+      ];
+      
+      csvContent += row.join(",") + "\n";
+      postsFound++;
+    }
+  }
+
+  // ------------------------------------------
+  // 5️⃣ گوگل ڈرائیو میں سیو کریں
+  // ------------------------------------------
+  if (postsFound > 0) {
+    var folder = DriveApp.getFolderById(FOLDER_ID);
+    var fileName = "urdunovelbanks_FULL_" + currentYear + "-" + (currentMonth + 1) + ".csv";
+    
+    // پرانی فائل ہو تو ڈیلیٹ نہ کریں، نئی فائل بنائیں
+    folder.createFile(fileName, csvContent, MimeType.CSV);
+    Logger.log("Success! " + postsFound + " posts saved to file: " + fileName);
+  } else {
+    Logger.log("No posts found for this month.");
+  }
+}
+
+// ------------------------------------------
+// 🛠 مددگار فنکشن (Helper Function)
+// ------------------------------------------
+// یہ فنکشن ٹیکسٹ میں موجود Commas اور Quotes کو ہینڈل کرتا ہے
+// تاکہ CSV فائل خراب نہ ہو۔
+function escapeCsv(text) {
+  if (!text) return "";
+  // اگر ٹیکسٹ میں " موجود ہو تو اسے "" میں بدل دیں (CSV کا اصول)
+  text = text.replace(/"/g, '""');
+  // پورے ٹیکسٹ کو ڈبل کوٹس "..." میں بند کر دیں
+  return '"' + text + '"';
+}  bus tum aisah kro ke is script ko theek kro yeani is ma bhi yehi masla ha ke ye sari post ko nahi shamil kar raha us month ki 
