@@ -1,0 +1,135 @@
+function saveSeparateCsvsDeepScan() {
+  // ------------------------------------------
+  // 1️⃣ ویب سائٹس کی لسٹ
+  // ------------------------------------------
+  var WEBSITES = [
+    "https://digestlibrary.com/",
+    "https://www.urdunovelbanks.com/"
+  ];
+
+  var FOLDER_ID = ""; 
+
+  // ------------------------------------------
+  // 2️⃣ مین کوڈ
+  // ------------------------------------------
+  var now = new Date();
+  var currentMonth = now.getMonth(); 
+  var currentYear = now.getFullYear();
+  var folder = DriveApp.getFolderById(FOLDER_ID);
+
+  for (var w = 0; w < WEBSITES.length; w++) {
+    var siteUrl = WEBSITES[w];
+    if (siteUrl.charAt(siteUrl.length - 1) != '/') siteUrl += '/';
+    
+    var domainName = siteUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0];
+    Logger.log("------------\nScanning: " + domainName);
+
+    var rssUrl = getValidRssUrl(siteUrl);
+    
+    if (!rssUrl) {
+      Logger.log("❌ Failed: RSS not found for " + domainName);
+      continue;
+    }
+
+    var csvContent = "Title,Google Drive Link,MediaFire Link,Post URL\n";
+    var postsFound = 0;
+
+    try {
+      var response = UrlFetchApp.fetch(rssUrl, {muteHttpExceptions: true});
+      var xml = response.getContentText();
+      var document = XmlService.parse(xml);
+      var root = document.getRootElement();
+      var channel = root.getChild('channel');
+      var items = channel.getChildren('item');
+
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        
+        var pubDateStr = item.getChildText('pubDate');
+        var pubDate = new Date(pubDateStr);
+        
+        if (pubDate.getFullYear() === currentYear && pubDate.getMonth() === currentMonth) {
+          
+          var title = item.getChildText('title');
+          var postLink = item.getChildText('link');
+
+          Logger.log("Checking post: " + title);
+
+          // ----------------------------------------------------
+          // 🔥 DEEP SCAN: اصل پیج کھولیں
+          // ----------------------------------------------------
+          var fullPageHtml = "";
+          try {
+            Utilities.sleep(1000); 
+            var pageResp = UrlFetchApp.fetch(postLink, {muteHttpExceptions: true});
+            fullPageHtml = pageResp.getContentText();
+          } catch(err) {
+            Logger.log("Could not open page: " + postLink);
+          }
+
+          // ----------------------------------------------------
+          // 🔥 NEW: صرف مخصوص ڈومینز کو ٹارگٹ کریں
+          // ----------------------------------------------------
+          
+          // گوگل کے لیے: صرف drive.google یا docs.google
+          var gDriveLink = findSpecificLink(fullPageHtml, /(https?:\/\/(drive|docs)\.google\.com\/[^"'\s<>]+)/i);
+          
+          // میڈیا فائر کے لیے
+          var mediaFireLink = findSpecificLink(fullPageHtml, /(https?:\/\/www\.mediafire\.com\/[^"'\s<>]+)/i);
+
+          var row = [
+            escapeCsv(title), 
+            gDriveLink, 
+            mediaFireLink,
+            postLink
+          ];
+          csvContent += row.join(",") + "\n";
+          postsFound++;
+        }
+      }
+
+      if (postsFound > 0) {
+        var fileName = domainName + "_" + currentYear + "-" + (currentMonth + 1) + ".csv";
+        folder.createFile(fileName, csvContent, MimeType.CSV);
+        Logger.log("✅ File Created: " + fileName + " (" + postsFound + " posts)");
+      } else {
+        Logger.log("⚠️ No posts found for this month on " + domainName);
+      }
+
+    } catch (e) {
+      Logger.log("❌ Error processing " + domainName + ": " + e.toString());
+    }
+  }
+}
+
+// ------------------------------------------
+// 🛠 نیا اور بہتر لنک فائنڈر (Smart Regex)
+// ------------------------------------------
+function findSpecificLink(html, regexPattern) {
+  if (!html) return "NA";
+
+  var match = html.match(regexPattern);
+  if (match && match[0]) {
+    // لنک کی صفائی کریں (آخر میں آنے والے بریکٹ یا کوٹس ہٹائیں)
+    return match[0].replace(/[)\]]+$/, '').replace(/&quot;/g, '').replace(/&amp;/g, '&');
+  }
+  return "NA";
+}
+
+function getValidRssUrl(baseUrl) {
+  var patterns = ["feeds/posts/default?alt=rss", "feed/", "rss.xml", "atom.xml"];
+  for (var i = 0; i < patterns.length; i++) {
+    var testUrl = baseUrl + patterns[i];
+    try {
+      var resp = UrlFetchApp.fetch(testUrl, {muteHttpExceptions: true});
+      if (resp.getResponseCode() == 200) return testUrl;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function escapeCsv(text) {
+  if (!text) return "";
+  text = text.replace(/"/g, '""');
+  return '"' + text + '"';
+}
