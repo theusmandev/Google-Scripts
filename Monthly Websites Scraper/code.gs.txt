@@ -1,16 +1,15 @@
-function saveSeparateCsvsDeepScan() {
+function saveFinalFixedCsv() {
   // ------------------------------------------
   // 1️⃣ ویب سائٹس کی لسٹ
   // ------------------------------------------
   var WEBSITES = [
-    "https://digestlibrary.com/",
-    "https://www.urdunovelbanks.com/"
+    "https://digestlibrary.com/"
   ];
 
   var FOLDER_ID = ""; 
 
   // ------------------------------------------
-  // 2️⃣ مین کوڈ
+  // 2️⃣ تاریخ اور سیٹنگز
   // ------------------------------------------
   var now = new Date();
   var currentMonth = now.getMonth(); 
@@ -21,10 +20,12 @@ function saveSeparateCsvsDeepScan() {
     var siteUrl = WEBSITES[w];
     if (siteUrl.charAt(siteUrl.length - 1) != '/') siteUrl += '/';
     
+    // ڈومین کا نام نکالنا
     var domainName = siteUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').split('.')[0];
     Logger.log("------------\nScanning: " + domainName);
 
-    var rssUrl = getValidRssUrl(siteUrl);
+    // 🔥 FIX 1: max-results=500 (تاکہ 8 تاریخ والی پرانی پوسٹس بھی آ جائیں)
+    var rssUrl = getHighLimitRssUrl(siteUrl);
     
     if (!rssUrl) {
       Logger.log("❌ Failed: RSS not found for " + domainName);
@@ -42,25 +43,27 @@ function saveSeparateCsvsDeepScan() {
       var channel = root.getChild('channel');
       var items = channel.getChildren('item');
 
+      Logger.log("Total items fetched from RSS: " + items.length);
+
       for (var i = 0; i < items.length; i++) {
         var item = items[i];
         
         var pubDateStr = item.getChildText('pubDate');
         var pubDate = new Date(pubDateStr);
         
+        // صرف موجودہ مہینے کی پوسٹس چیک کریں
         if (pubDate.getFullYear() === currentYear && pubDate.getMonth() === currentMonth) {
           
           var title = item.getChildText('title');
           var postLink = item.getChildText('link');
-
-          Logger.log("Checking post: " + title);
 
           // ----------------------------------------------------
           // 🔥 DEEP SCAN: اصل پیج کھولیں
           // ----------------------------------------------------
           var fullPageHtml = "";
           try {
-            Utilities.sleep(1000); 
+            // ویب سائٹ کو کریش ہونے سے بچانے کے لیے معمولی وقفہ
+            Utilities.sleep(800); 
             var pageResp = UrlFetchApp.fetch(postLink, {muteHttpExceptions: true});
             fullPageHtml = pageResp.getContentText();
           } catch(err) {
@@ -68,14 +71,17 @@ function saveSeparateCsvsDeepScan() {
           }
 
           // ----------------------------------------------------
-          // 🔥 NEW: صرف مخصوص ڈومینز کو ٹارگٹ کریں
+          // 🔥 FIX 2: غلط لنکس (Ads) کا علاج
           // ----------------------------------------------------
           
-          // گوگل کے لیے: صرف drive.google یا docs.google
+          // صرف اور صرف drive.google.com یا docs.google.com اٹھائے گا
           var gDriveLink = findSpecificLink(fullPageHtml, /(https?:\/\/(drive|docs)\.google\.com\/[^"'\s<>]+)/i);
           
-          // میڈیا فائر کے لیے
+          // میڈیا فائر
           var mediaFireLink = findSpecificLink(fullPageHtml, /(https?:\/\/www\.mediafire\.com\/[^"'\s<>]+)/i);
+
+          // اگر لنک غلطی سے بھی 'fundingchoices' ہو تو اسے صاف کر دے
+          if (gDriveLink.indexOf("fundingchoices") > -1) gDriveLink = "NA";
 
           var row = [
             escapeCsv(title), 
@@ -103,29 +109,42 @@ function saveSeparateCsvsDeepScan() {
 }
 
 // ------------------------------------------
-// 🛠 نیا اور بہتر لنک فائنڈر (Smart Regex)
+// 🛠 نیا RSS URL فنکشن (زیادہ پوسٹس لانے والا)
+// ------------------------------------------
+function getHighLimitRssUrl(baseUrl) {
+  // Blogger کے لیے max-results=500 بہت ضروری ہے
+  var patterns = [
+    "feeds/posts/default?alt=rss&max-results=500",  // Best for Blogger
+    "feed/?paged=1",                                // Try for WordPress
+    "feed/",
+    "rss.xml"
+  ];
+
+  for (var i = 0; i < patterns.length; i++) {
+    var testUrl = baseUrl + patterns[i];
+    try {
+      var resp = UrlFetchApp.fetch(testUrl, {muteHttpExceptions: true});
+      if (resp.getResponseCode() == 200) {
+        Logger.log("Using RSS Feed: " + testUrl);
+        return testUrl;
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+// ------------------------------------------
+// 🛠 سمارٹ لنک فائنڈر
 // ------------------------------------------
 function findSpecificLink(html, regexPattern) {
   if (!html) return "NA";
 
   var match = html.match(regexPattern);
   if (match && match[0]) {
-    // لنک کی صفائی کریں (آخر میں آنے والے بریکٹ یا کوٹس ہٹائیں)
+    // صفائی: آخر سے فضول نشانات ہٹائیں
     return match[0].replace(/[)\]]+$/, '').replace(/&quot;/g, '').replace(/&amp;/g, '&');
   }
   return "NA";
-}
-
-function getValidRssUrl(baseUrl) {
-  var patterns = ["feeds/posts/default?alt=rss", "feed/", "rss.xml", "atom.xml"];
-  for (var i = 0; i < patterns.length; i++) {
-    var testUrl = baseUrl + patterns[i];
-    try {
-      var resp = UrlFetchApp.fetch(testUrl, {muteHttpExceptions: true});
-      if (resp.getResponseCode() == 200) return testUrl;
-    } catch (e) {}
-  }
-  return null;
 }
 
 function escapeCsv(text) {
