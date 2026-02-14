@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary-color: #2563eb;
+    --secondary-color: #1e40af;
+    --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    --white: #ffffff;
+    --text-main: #1f2937;
+    --transition: all 0.3s ease;
+  }
+
+  .form-container {
+    font-family: 'Poppins', sans-serif;
+    max-width: 500px;
+    margin: 40px auto;
+    background: var(--white);
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+  }
+
+  .form-header { text-align: center; margin-bottom: 30px; }
+  .form-header h2 { color: var(--text-main); font-weight: 600; font-size: 24px; margin-bottom: 8px; }
+  .form-header p { color: #6b7280; font-size: 14px; }
+
+  .input-group { margin-bottom: 20px; position: relative; }
+  .input-group label { display: block; font-size: 13px; font-weight: 500; color: #4b5563; margin-bottom: 8px; }
+
+  .input-group input, .input-group select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #f3f4f6;
+    border-radius: 10px;
+    outline: none;
+    font-size: 15px;
+    transition: var(--transition);
+    background: #f9fafb;
+    box-sizing: border-box;
+  }
+
+  .input-group input:focus, .input-group select:focus {
+    border-color: var(--primary-color);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  }
+
+  .btn-submit {
+    width: 100%;
+    padding: 14px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-submit:hover { background: var(--secondary-color); transform: translateY(-1px); }
+  .btn-submit:active { transform: translateY(0); }
+  .btn-submit:disabled { background: #94a3b8; cursor: not-allowed; }
+
+  /* Notification Styles */
+  #statusBox {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 14px;
+    display: none;
+  }
+  .success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+  /* Animation */
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .loader { border: 2px solid #f3f3f3; border-top: 2px solid #fff; border-radius: 50%; width: 16px; height: 16px; animation: spin 0.8s linear infinite; display: none; }
+</style>
+
+<div class="form-container">
+  <div class="form-header">
+    <h2>Service Request</h2>
+    <p>Please fill out the form below to get started</p>
+  </div>
+
+  <form id="proServiceForm">
+    <div class="input-group">
+      <label>Your Full Name</label>
+      <input type="text" name="name" id="userName" placeholder="e.g. Ali Khan" required>
+    </div>
+
+    <div class="input-group">
+      <label>Phone Number</label>
+      <input type="tel" name="phone" id="userPhone" placeholder="+92 300 1234567" required>
+    </div>
+
+    <div class="input-group">
+      <label>Select Your Required Service</label>
+      <select name="service" id="userService" required>
+        <option value="" disabled selected>Choose a service...</option>
+        <optgroup label="Business Formations">
+          <option value="UK LTD Formation">UK LTD Formation</option>
+          <option value="LLC Formation">LLC Formation</option>
+        </optgroup>
+        <optgroup label="Payment Setups">
+          <option value="Setup Wise">Setup Wise</option>
+          <option value="Setup Stripe">Setup Stripe</option>
+          <option value="Setup PayPal">Setup PayPal</option>
+          <option value="Setup Poyoneer">Setup Payoneer</option>
+        </optgroup>
+        <optgroup label="Shopify & TikTok">
+          <option value="Setup TikTok Shop">Setup TikTok Shop</option>
+          <option value="Design Shopify Store">Design Shopify Store</option>
+          <option value="TikTok Ads Account">TikTok Ads Account</option>
+        </optgroup>
+        <optgroup label="Marketing & Mentorship">
+          <option value="Shopify Mentorship">Shopify Mentorship</option>
+          <option value="TikTok Mentorship">TikTok Mentorship</option>
+          <option value="Facebook Marketing">Facebook Marketing</option>
+          <option value="TikTok Marketing">TikTok Marketing</option>
+          <option value="Google Ads Marketing">Google Ads Marketing</option>
+          <option value="Snapchat Ads Marketing">Snapchat Ads Marketing</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <button type="submit" id="submitBtn" class="btn-submit">
+      <span class="loader" id="loader"></span>
+      <span id="btnText">Submit Application</span>
+    </button>
+  </form>
+
+  <div id="statusBox"></div>
+</div>
+
+<script>
+  const scriptURL = 'https://script.google.com/macros/s/AKfycbzymkVl7EB3i2qGXO1VyJiwQwR-Pn7Ja9s6moUnub2K2NmnVtjjgmrm4If_9baUgiBO/exec'; // <-- Paste Your Web App URL Here
+  const form = document.getElementById('proServiceForm');
+  const btn = document.getElementById('submitBtn');
+  const btnText = document.getElementById('btnText');
+  const loader = document.getElementById('loader');
+  const statusBox = document.getElementById('statusBox');
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    
+    // UI state for loading
+    btn.disabled = true;
+    loader.style.display = "block";
+    btnText.innerText = "Submitting...";
+    statusBox.style.display = "none";
+
+    fetch(scriptURL, { method: 'POST', body: new FormData(form)})
+      .then(response => {
+        statusBox.className = "success";
+        statusBox.innerHTML = "<b>Success!</b> Your request has been sent to our " + document.getElementById('userService').value + " department.";
+        statusBox.style.display = "block";
+        form.reset();
+      })
+      .catch(error => {
+        statusBox.className = "error";
+        statusBox.innerHTML = "<b>Error!</b> Something went wrong. Please try again.";
+        statusBox.style.display = "block";
+      })
+      .finally(() => {
+        btn.disabled = false;
+        loader.style.display = "none";
+        btnText.innerText = "Submit Application";
+      });
+  });
+</script>
+</body>
+</html>
