@@ -1,0 +1,52 @@
+function getGoogleDriveFileNames() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  
+  if (lastRow < 2) return;
+
+  // Column A (Links) aur Column C (Titles) ka data aik saath uthayein
+  var rangeA = sheet.getRange("A2:A" + lastRow);
+  var rangeC = sheet.getRange("C2:C" + lastRow);
+  
+  var links = rangeA.getValues();
+  var titles = rangeC.getValues();
+
+  var batchSize = 10; // Har 10 links ke baad sheet update hogi
+  var count = 0;
+
+  console.log("Starting process. Checking for missing titles...");
+
+  for (var i = 0; i < links.length; i++) {
+    var url = links[i][0].toString();
+    var existingTitle = titles[i][0].toString();
+
+    // Agar link mojood hai aur Title wala cell khali hai, sirf tabhi process karein
+    if (url && url.trim() !== "" && (!existingTitle || existingTitle.trim() === "")) {
+      try {
+        var fileId = url.match(/[-\w]{25,}/); 
+        if (fileId) {
+          var file = DriveApp.getFileById(fileId[0]);
+          var fileName = file.getName();
+          titles[i][0] = fileName; // Array mein title save karein
+          console.log("Success (" + (i + 2) + "): " + fileName);
+          count++;
+        }
+      } catch (e) {
+        titles[i][0] = "Error: " + e.message;
+        console.warn("Row " + (i + 2) + " failed: " + e.message);
+      }
+    }
+
+    // Har 10 entries ke baad sheet mein save karein taake progress zaya na ho
+    if (count > 0 && count % batchSize === 0) {
+      sheet.getRange(2, 3, titles.length, 1).setValues(titles);
+      console.log("--- Progress Saved (Batch Update) ---");
+    }
+  }
+
+  // Final save baki bache hue results ke liye
+  sheet.getRange(2, 3, titles.length, 1).setValues(titles);
+  console.log("Task finished successfully!");
+}
+
+
